@@ -3,7 +3,8 @@ import { Construct } from 'constructs';
 import { AttributeType, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Code, Function, Runtime } from "aws-cdk-lib/aws-lambda";
 import { PolicyDocument, PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
-import { LambdaIntegration, RestApi } from "aws-cdk-lib/aws-apigateway";
+import { LambdaIntegration, ResourceBase, RestApi } from "aws-cdk-lib/aws-apigateway";
+import { userApiDefinition, ApiDefinition } from './api-definition';
 import * as path from "path";
 
 export class InfraStack extends Stack {
@@ -94,12 +95,16 @@ export class InfraStack extends Stack {
   }
 
   private addApiResources() {
-    const users = this.userApi.root.addResource('user');
-    const user = users.addResource('{id}');
+    const resource = this.userApi.root.addResource(userApiDefinition.path);
+    this.addApiResource(userApiDefinition, resource);
+  }
 
-    users.addMethod('GET', new LambdaIntegration(this.userLambda));
-    users.addMethod('POST', new LambdaIntegration(this.userLambda));
-    user.addMethod('GET', new LambdaIntegration(this.userLambda));
-    user.addMethod('DELETE', new LambdaIntegration(this.userLambda));
+  private addApiResource(apiDefinition: ApiDefinition, resource: ResourceBase) {
+    apiDefinition.methods.forEach(method => {
+      resource.addMethod(method, new LambdaIntegration(this.userLambda));
+    });
+    apiDefinition.child.forEach(child => {
+      this.addApiResource(child, resource.addResource(child.path))
+    });
   }
 }
